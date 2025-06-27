@@ -29,7 +29,7 @@ jobs:
         # 构建可执行文件
         GOOS=${{ matrix.platform.os }} GOARCH=${{ matrix.platform.arch }} go build \
           -o "$OUTPUT_FILE" \
-          ./cmd/main
+          ./
         
         # 创建版本信息文件
         VERSION_FILE="version-${{ matrix.platform.os }}-${{ matrix.platform.arch }}.txt"
