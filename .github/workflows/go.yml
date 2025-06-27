@@ -1,4 +1,4 @@
-name: Go Stream Actions
+name: Go Stream Build Actions
 
 on:
   push:
@@ -20,18 +20,23 @@ jobs:
 
     - name: Build
       run: |
-        # 构建二进制文件并放入dist目录
+        # 修复：为每个主包单独构建
         mkdir -p dist
-        go build -o dist/go-stream ./   # 替换myapp为你的应用名称
+        # 构建主程序（替换为您的实际包路径）
+        go build -o dist/go-stream ./
+        GOOS=linux GOARCH=amd64 go build -o dist/go-stream-linux-amd64 ./
+        GOOS=windows GOARCH=amd64 go build -o dist/go-stream-windows-amd64.exe ./
 
     - name: Test
       run: go test -v ./...
 
     - name: Package Artifacts
       run: |
-        tar czvf release.tar.gz dist/  # 打包dist目录
+        # 创建带版本号的压缩包
+        VERSION=${GITHUB_REF#refs/tags/}
+        tar czvf "go-stream-$VERSION-linux-amd64.tar.gz" dist/*
         mkdir release-artifacts
-        mv release.tar.gz release-artifacts/
+        mv *.tar.gz release-artifacts/
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
@@ -40,8 +45,8 @@ jobs:
         path: release-artifacts/
 
   release:
-    needs: build  # 依赖build任务
-    if: startsWith(github.ref, 'refs/tags/')  # 仅在tag推送时触发
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
       - name: Download Artifacts
@@ -53,8 +58,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: release-files/*  # 发布所有打包文件
+          files: release-files/*.tar.gz
           draft: false
           prerelease: false
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # 自动使用内置token
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
