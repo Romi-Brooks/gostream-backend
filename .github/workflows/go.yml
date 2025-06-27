@@ -3,12 +3,16 @@ name: Go Stream Build Actions
 on:
   push:
     branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: 
+          - { os: linux, arch: amd64, suffix: "" }
+          - { os: windows, arch: amd64, suffix: ".exe" }
+    
     steps:
     - uses: actions/checkout@v4
 
@@ -17,29 +21,35 @@ jobs:
       with:
         go-version: '1.20'
 
-    - name: Build
+    - name: Build for ${{ matrix.platform.os }}-${{ matrix.platform.arch }}
       run: |
-        mkdir -p dist
-        # 构建主程序（替换为您的实际包路径）
-        go build -o dist/go-stream ./
-
-    - name: Test
-      run: go test -v ./...
-
-    - name: Package Artifacts
-      run: |
-        # 使用提交信息生成文件名
-        TIMESTAMP=$(date +%Y%m%d%H%M%S)
-        COMMIT_SHA_SHORT=$(git rev-parse --short HEAD)
-        FILENAME="go-stream-${TIMESTAMP}-${COMMIT_SHA_SHORT}.tar.gz"
+        # 设置输出文件名
+        OUTPUT_FILE="go-stream-${{ matrix.platform.os }}-${{ matrix.platform.arch }}${{ matrix.platform.suffix }}"
         
-        tar czvf "$FILENAME" dist/*
-        mkdir release-artifacts
-        mv "$FILENAME" release-artifacts/
+        # 构建可执行文件
+        GOOS=${{ matrix.platform.os }} GOARCH=${{ matrix.platform.arch }} go build \
+          -o "$OUTPUT_FILE" \
+          ./cmd/main
+        
+        # 创建版本信息文件
+        VERSION_FILE="version-${{ matrix.platform.os }}-${{ matrix.platform.arch }}.txt"
+        echo "Platform: ${{ matrix.platform.os }}/${{ matrix.platform.arch }}" > "$VERSION_FILE"
+        echo "Commit: $GITHUB_SHA" >> "$VERSION_FILE"
+        echo "Build Date: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$VERSION_FILE"
 
-    - name: Upload Build Artifacts
+    - name: Prepare Artifacts Directory
+      run: |
+        # 创建平台特定的目录结构
+        PLATFORM_DIR="artifacts/${{ matrix.platform.os }}-${{ matrix.platform.arch }}"
+        mkdir -p $PLATFORM_DIR
+        
+        # 移动文件到目录
+        mv "go-stream-${{ matrix.platform.os }}-${{ matrix.platform.arch }}"* $PLATFORM_DIR/ || true
+        mv "version-${{ matrix.platform.os }}-${{ matrix.platform.arch }}.txt" $PLATFORM_DIR/
+
+    - name: Upload ${{ matrix.platform.os }}-${{ matrix.platform.arch }} Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: go-stream-binaries
-        path: release-artifacts/
-        retention-days: 7  # 设置保留天数（默认90天）
+        name: go-stream-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
+        path: artifacts/${{ matrix.platform.os }}-${{ matrix.platform.arch }}/
+        retention-days: 7
