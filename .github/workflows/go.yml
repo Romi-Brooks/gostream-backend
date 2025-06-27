@@ -22,7 +22,7 @@ jobs:
       run: |
         # 构建二进制文件并放入dist目录
         mkdir -p dist
-        go build -o dist/go-stream ./...   # 替换myapp为你的应用名称
+        go build -o dist/go-stream ./   # 替换myapp为你的应用名称
 
     - name: Test
       run: go test -v ./...
